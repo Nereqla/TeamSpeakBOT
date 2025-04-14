@@ -14,7 +14,7 @@ internal class UpdateOnlineUsers : IModule
     private HttpClient _httpClient;
     private string _previousCount = String.Empty;
     private bool _isSetted = false;
-    private string _armaHostName = "195.85.205.83";
+    private string _armaHostName = "Game Server IP Address";
 
     public UpdateOnlineUsers()
     {
@@ -24,12 +24,13 @@ internal class UpdateOnlineUsers : IModule
     {
         if (!_isSetted)
         {
-            var channels = await Ts3Client.Client.GetChannels();
-            _channelID = channels.Where(x => x.Name.Contains("Aktif Oyuncu")).First().Id;
-            SetApiURL();
+            await FindChannelIdToChange();
             _isSetted = true;
+            SetApiURL();
         }
     }
+
+
     private void SetApiURL()
     {
         _apiURL = String.Format($"https://api.steampowered.com/IGameServersService/GetServerList/v1/?key={SteamCredentials.SteamApiKey}&filter=addr\\{_armaHostName}");
@@ -37,8 +38,10 @@ internal class UpdateOnlineUsers : IModule
     public async Task<bool> Run()
     {
         await SetVariables();
-
+        Logger.WriteConsoleAsync("Steam API'a istek atılıyor. ", LogLevel.Warning);
         string newestCount = await GetOnlineCount();
+        Logger.WriteConsoleAsync($"Sunucunun oyuncu sayısı {newestCount} olarak bulundu.");
+
         if (newestCount != _previousCount)
         {
             Ts3Client.Client.EditChannel(_channelID, ChannelEdit.channel_name, GetOnlineStatusText(newestCount));
@@ -47,7 +50,7 @@ internal class UpdateOnlineUsers : IModule
         }
         else
         {
-            await Logger.WriteConsoleAsync($"Online oyuncu sayısı kontrol edildi! Değişen bir şey yok. Güncel sayı: {newestCount}");
+            await Logger.WriteConsoleAsync($"Online oyuncu sayısı kontrol edildi! Değişen bir şey yok. Güncel sayı: {newestCount}", LogLevel.Warning);
         }
 
         return true;
@@ -55,7 +58,6 @@ internal class UpdateOnlineUsers : IModule
 
     private async Task<string> GetOnlineCount()
     {
-        SetApiURL();
         SteamServerJsonResponse jsonObject = null;
         try
         {
@@ -75,15 +77,28 @@ internal class UpdateOnlineUsers : IModule
             throw new Exception("Steam api hata verdi, modül bu seferlik atlandı.");
         }
 
+        if (jsonObject == null)
+        {
+            await Logger.WriteConsoleAsync($"GetOnlineCount() methounda jsonObject null!", LogLevel.Error);
+            Logger.LogToFile("GetOnlineCount() methounda jsonObject null!");
+            throw new Exception("GetOnlineCount() methounda jsonObject null!");
+        }
+
         if (jsonObject.response.servers.Count <= 0)
         {
-            await Logger.WriteConsoleAsync("Arma sunucusu bulunamadı[!] Oyuncu sayısı 0 olarak giriliyor.");
+            await Logger.WriteConsoleAsync("Arma sunucusu bulunamadı[!] Oyuncu sayısı 0 olarak giriliyor." ,LogLevel.Warning);
             Logger.LogToFile("Arma sunucu bulunamadı? Değer 0 olarak varsayılıyor.");
             return "0";
         }
         else return jsonObject.response.servers.FirstOrDefault().players.ToString();
     }
-
+    private async Task FindChannelIdToChange()
+    {
+        Logger.WriteConsoleAsync("Aktif yetkili kanalının ID'si alınıyor.", LogLevel.Warning);
+        var channels = await Ts3Client.Client.GetChannels();
+        _channelID = channels.Where(x => x.Name.Contains("Aktif Oyuncu")).Single().Id;
+        Logger.WriteConsoleAsync($"Aktif yetkili kanalının ID'si {_channelID} olarak bulundu.");
+    }
     private static string GetOnlineStatusText(string onlineCount)
     {
         return string.Format($"[cspacer]Aktif Oyuncu : [{onlineCount}]");

@@ -1,4 +1,5 @@
-﻿using TeamSpeak3QueryApi.Net.Specialized;
+﻿using System.Text;
+using TeamSpeak3QueryApi.Net.Specialized;
 using TeamSpeakBOT.Helper;
 using TeamSpeakBOT.Interface;
 
@@ -6,17 +7,12 @@ namespace TeamSpeakBOT.Admins;
 public class UpdateOnlineAdmins : IModule
 {
     private Dictionary<string, int> _serverGroups;
-
     private List<string> _admins;
-
     private string _adminNamesInLine = String.Empty;
-
+    private List<int> _adminIdListCache = null;
     private int _previousAdminCount = 0;
-
     private int _channelID = 0;
-
     private bool _isSetted = false;
-
 
     public UpdateOnlineAdmins()
     {
@@ -27,8 +23,7 @@ public class UpdateOnlineAdmins : IModule
     {
         if (!_isSetted)
         {
-            var channels = await Ts3Client.Client.GetChannels();
-            _channelID = channels.Where(x => x.Name.Contains("Aktif Yetkili")).First().Id;
+            await FindChannelIdToChange();
             await LoadServerGroups();
             await LoadAdminGroups();
             _isSetted = true;
@@ -38,7 +33,10 @@ public class UpdateOnlineAdmins : IModule
     public async Task<bool> Run()
     {
         await SetVariables();
+        Logger.WriteConsoleAsync("Aktif admin sayısı kontrol ediliyor...");
         int adminCount = await GetAdminCount();
+        Logger.WriteConsoleAsync($"Aktif admin sayısı {adminCount} olarak bulundu.");
+
 
         if (adminCount != _previousAdminCount)
         {
@@ -72,30 +70,49 @@ public class UpdateOnlineAdmins : IModule
         }
         return counter;
     }
+    private async Task FindChannelIdToChange()
+    {
+        Logger.WriteConsoleAsync("Aktif yetkili kanalının ID'si alınıyor.");
+        var channels = await Ts3Client.Client.GetChannels();
+        _channelID = channels.Where(x => x.Name.Contains("Aktif Yetkili")).First().Id;
+        Logger.WriteConsoleAsync($"Aktif yetkili kanalının ID'si {_channelID} olarak bulundu.");
+    }
 
     private async Task<List<int>> GetAdminIds()
     {
-        var tempList = new List<int>();
-
-        foreach (string name in _admins)
+        if (_adminIdListCache is null)
         {
-            tempList.Add(_serverGroups[name]);
-        }
+            _adminIdListCache = new List<int>();
 
-        return tempList;
+            foreach (string name in _admins)
+            {
+                _adminIdListCache.Add(_serverGroups[name]);
+            }
+            return _adminIdListCache;
+        }
+        else return _adminIdListCache;
     }
 
     private async Task LoadServerGroups()
     {
-        var tempGroupsList = await Ts3Client.Client.GetServerGroups();
+        Logger.WriteConsoleAsync($"Sunucu rolleri yükleniyor...", LogLevel.Warning);
 
+        var tempGroupsList = await Ts3Client.Client.GetServerGroups();
+        StringBuilder sb = new StringBuilder();
         foreach (var group in tempGroupsList)
         {
             _serverGroups.Add(group.Name.Trim(), group.Id);
+            sb.Append(group.Name.Trim());
+            sb.Append(", ");
         }
+        Logger.WriteConsoleAsync(sb.ToString());
+        Logger.WriteConsoleAsync($"Toplam {tempGroupsList.Count} rol bulundu.");
     }
     private async Task LoadAdminGroups()
     {
+
+        // Bu roller her TS sunucuna özeldir! Yeni sunucularda isimleri doğru bir şekilde girilmeli!
+        await Logger.WriteConsoleAsync($"Admin olarak kabul edilen roller ayarlanıyor...", LogLevel.Warning);
         _admins = new List<string>
         {
             "Moderatör",
@@ -110,6 +127,14 @@ public class UpdateOnlineAdmins : IModule
             "Scripter",
             "Yönetim Sorumlusu",
         };
+        StringBuilder sb = new StringBuilder();
+
+        _admins.ForEach(async x =>
+        {
+            sb.Append(x.Trim());
+            sb.Append(", ");
+        });
+        await Logger.WriteConsoleAsync(sb.ToString());
     }
 
     private static string GetOnlineStatusText(string onlineCount)
