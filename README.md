@@ -2,7 +2,7 @@
 
 Bu proje, önceki sürümün teknik eksikliklerini gidermek ve daha temiz bir mimariyle sıfırdan inşa edilmek üzere geliştirilmiş yeni nesil TeamSpeak BOT çalışmasıdır. Temel amacı, Arma sunucumuzun özel ihtiyaçlarını çok daha stabil ve sürdürülebilir bir yapıda karşılamaktır. 
 
-Önceki versiyona kıyasla kod standartları ve yapısal bütünlük ön planda tutulmuş olsa da, proje hala şahsi kullanım odaklıdır ve genel bir kullanıcı kitlesi için optimize edilmemiştir.
+[Önceki](https://github.com/Nereqla/TeamSpeakBOT-legacy) versiyona kıyasla kod standartları ve yapısal bütünlük ön planda tutulmuş olsa da, proje hala şahsi kullanım odaklıdır ve genel bir kullanıcı kitlesi için optimize edilmemiştir.
 
 ## Proje Detayları
 
